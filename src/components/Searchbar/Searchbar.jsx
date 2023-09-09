@@ -7,7 +7,7 @@ import {
 } from './Searchbar.styled';
 import { BsSearch } from 'react-icons/bs';
 
-export const Searchbar = ({ onSubmit }) => {
+export const Searchbar = ({ onSubmit, queryText, onChangeQueryText }) => {
   return (
     <SearchbarHeader>
       <SearchForm onSubmit={onSubmit}>
@@ -17,8 +17,10 @@ export const Searchbar = ({ onSubmit }) => {
           <SearchFormButtonLabel>Search</SearchFormButtonLabel>
         </SearchFormButton>
         <SearchFormInput
+          onChange={onChangeQueryText}
           type="text"
           name="query"
+          value={queryText}
           autoComplete="off"
           autoFocus
           placeholder="Search images and photos"

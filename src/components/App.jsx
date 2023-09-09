@@ -1,6 +1,6 @@
 import { GlobalStyle } from './GlobalStyle';
 import { Layout } from './Layout';
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import { fetchArticlesWithQuery } from 'api/api';
 import toast, { Toaster } from 'react-hot-toast';
 import { Searchbar } from './Searchbar/Searchbar';
@@ -9,116 +9,123 @@ import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Modal } from './Modal/Modal';
 import { Loader } from './Loader/Loader';
 
-export class App extends Component {
-  state = {
-    query: 'dog',
-    loading: false,
-    error: false,
-    images: [],
-    page: 1,
-    loadMore: false,
-    uniqueId: 0,
-    modalIsOpen: false,
-    largeImageURL: '',
-  };
-
-  handleSubmit = evt => {
-    evt.preventDefault();
-
-    this.setState({
-      query: evt.target.elements.query.value,
-      images: [],
-      page: 1,
-      loadMore: false,
-      uniqueId: Date.now(),
-    });
-  };
-
-  async componentDidMount() {
-    const savedSearchQuery = localStorage.getItem('search-query');
-    if (savedSearchQuery !== null) {
-      this.setState({
-        query: savedSearchQuery,
-      });
-    }
-    if (!this.state.query) return;
+const getInitialQuery = () => {
+  const savedSearchQuery = localStorage.getItem('search-query');
+  if (savedSearchQuery !== null) {
+    return JSON.parse(savedSearchQuery);
   }
+  return '';
+};
 
-  async componentDidUpdate(prevProps, prevState) {
-    const { query, page, uniqueId } = this.state;
+export const App = () => {
+  const [query, setQuery] = useState(getInitialQuery);
+  const [queryText, setQueryText] = useState(getInitialQuery);
 
-    if (
-      prevState.query !== query ||
-      prevState.page !== page ||
-      prevState.uniqueId !== uniqueId
-    ) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [images, setImages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [loadMore, setLoadMore] = useState(false);
+  const [uniqueId, setUniqueId] = useState(0);
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [largeImageURL, setLargeImageURL] = useState('');
+
+  useEffect(() => {
+    async function getArticles() {
+      if (!query) return;
       try {
-        this.setState({ loading: true });
+        setLoading(true);
+        setError(false);
         const { hits, totalHits } = await fetchArticlesWithQuery(query, page);
 
         if (page > 1) {
-          this.setState({ images: [...prevState.images, ...hits] });
+          setImages(prevImages => [...prevImages, ...hits]);
         } else {
           if (!hits.length) {
             toast.error('Nothing found!');
             return;
           }
-          this.setState({ images: hits });
-          this.setState({ loadMore: true });
+          setImages(hits);
+          setLoadMore(true);
         }
         if (!hits.length || page >= Math.ceil(totalHits / 12)) {
-          this.setState({
-            loadMore: false,
-          });
+          setLoadMore(false);
+
           toast.error('No more images!');
         }
       } catch (error) {
-        this.setState({ error: true });
+        setError(true);
       } finally {
-        this.setState({ loading: false });
+        setLoading(false);
       }
     }
-  }
+    getArticles();
+  }, [query, page, uniqueId]);
 
-  handleLoadMore = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
+  useEffect(() => {
+    localStorage.setItem('search-query', JSON.stringify(query));
+  }, [query]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error('HTTP error!');
+    }
+  }, [error]);
+
+  const handleSubmit = evt => {
+    evt.preventDefault();
+
+    setQuery(evt.target.elements.query.value);
+    setImages([]);
+    setPage(1);
+    setLoadMore(false);
+    setUniqueId(Date.now());
   };
-  openModal = largeImageURL => {
-    this.setState({ largeImageURL, modalIsOpen: true });
-    document.addEventListener('keydown', this.onEscKeyPress);
+  const changeQueryText = evt => {
+    setQueryText(evt.target.value);
   };
-  closeModal = evt => {
+
+  const handleLoadMore = () => {
+    setPage(page + 1);
+  };
+  const openModal = largeImageURL => {
+    setLargeImageURL(largeImageURL);
+    setModalIsOpen(true);
+
+    document.addEventListener('keydown', onEscKeyPress);
+  };
+
+  const closeModal = evt => {
     if (evt.target === evt.currentTarget) {
-      this.setState({ modalIsOpen: false });
-      document.removeEventListener('keydown', this.onEscKeyPress);
+      setModalIsOpen(false);
+
+      document.removeEventListener('keydown', onEscKeyPress);
     }
   };
-  onEscKeyPress = evt => {
+  const onEscKeyPress = evt => {
     const ESC_KEY_CODE = 'Escape';
     if (evt.code === ESC_KEY_CODE) {
-      this.closeModal();
+      closeModal();
     }
   };
 
-  render() {
-    const { images, loadMore, modalIsOpen, largeImageURL, loading } =
-      this.state;
-    return (
-      <Layout>
-        <Searchbar onSubmit={this.handleSubmit} />
-        {images.length > 0 && (
-          <ImageGallery images={images} openModal={this.openModal} />
-        )}
-        {modalIsOpen && (
-          <Modal largeImageURL={largeImageURL} closeModal={this.closeModal} />
-        )}
-        {loadMore && <Button onHandleLoadMore={this.handleLoadMore} />}
-        {loading && <Loader />}
-        <GlobalStyle />
-        <Toaster position="top-right" reverseOrder={false} />
-      </Layout>
-    );
-  }
-}
+  return (
+    <Layout>
+      <Searchbar
+        onSubmit={handleSubmit}
+        queryText={queryText}
+        onChangeQueryText={changeQueryText}
+      />
+      {images.length > 0 && (
+        <ImageGallery images={images} openModal={openModal} />
+      )}
+      {modalIsOpen && (
+        <Modal largeImageURL={largeImageURL} closeModal={closeModal} />
+      )}
+      {loadMore && <Button onHandleLoadMore={handleLoadMore} />}
+      {loading && <Loader />}
+      <GlobalStyle />
+      <Toaster position="top-right" reverseOrder={false} />
+    </Layout>
+  );
+};
