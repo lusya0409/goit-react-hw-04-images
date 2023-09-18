@@ -8,6 +8,7 @@ import { Button } from './Button/Button';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Modal } from './Modal/Modal';
 import { Loader } from './Loader/Loader';
+// import { useRef } from 'react';
 
 const getInitialQuery = () => {
   const savedSearchQuery = localStorage.getItem('search-query');
@@ -31,6 +32,9 @@ export const App = () => {
   const [largeImageURL, setLargeImageURL] = useState('');
 
   useEffect(() => {
+    if (query === '') {
+      return;
+    }
     async function getArticles() {
       if (!query) return;
       try {
@@ -103,6 +107,7 @@ export const App = () => {
     }
   };
   const onEscKeyPress = evt => {
+    console.log(evt);
     const ESC_KEY_CODE = 'Escape';
     if (evt.code === ESC_KEY_CODE) {
       closeModal();
